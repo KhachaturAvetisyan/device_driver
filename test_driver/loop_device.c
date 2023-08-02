@@ -7,7 +7,7 @@
 #include <linux/cdev.h> 	
 
 #define LOOP_MAJOR 0
-#define LOOP_NAME "loop_device"
+#define LOOP_NAME "loop_device" 
 #define BYTES_PER_ROW 16
 
 MODULE_LICENSE("GPL");
@@ -20,6 +20,10 @@ static struct cdev my_cdev;
 static char *output_file = "/tmp/output";
 static struct file *output_file_ptr;
 
+// static char output_buffer[1024]; // A buffer to store the data written by the user
+// static int output_buffer_size = 0; // Current size of the buffer
+
+
 static int loop_open(struct inode *inode, struct file *file)
 {
     pr_info("loop_device: Device opened\n");
@@ -30,83 +34,106 @@ static int loop_open(struct inode *inode, struct file *file)
 static ssize_t loop_read(struct file *file, char __user *buf,
                          size_t count, loff_t *ppos)
 {
-    // Reading from /dev/loop is not implemented in this example.
+    pr_info("loop_device: Device reading.\n");
+
     return 0;
 }
 
 static ssize_t loop_write(struct file *file, const char __user *buf,
                           size_t count, loff_t *ppos)
 {
-    // char *hex_buffer;
-    // size_t i, j;
-    // ssize_t bytes_written = 0;
-    // int rows = count / BYTES_PER_ROW;
-    // int remaining = count % BYTES_PER_ROW;
+    pr_info("loop_device: Device writing.\n");
 
-    // // Open the output file for writing
-    // output_file_ptr = filp_open(output_file, O_CREAT | O_WRONLY | O_TRUNC, 0644);
-    // if (IS_ERR(output_file_ptr)) 
-    // {
-    //     pr_err("loop_device: Unable to open output file\n");
-    //     unregister_chrdev(LOOP_MAJOR, LOOP_NAME);
-    //     return PTR_ERR(output_file_ptr);
-    // }
+    char *hex_buffer;
+    size_t i, j;
+    ssize_t bytes_written = 0;
+    int rows = count / BYTES_PER_ROW;
+    int remaining = count % BYTES_PER_ROW;
 
-    // pr_info("loop_device: %s file opend.\n", output_file);
+    // Open the output file for writing
+    output_file_ptr = filp_open(output_file, O_CREAT | O_WRONLY | O_TRUNC, 0644);
+    if (IS_ERR(output_file_ptr)) 
+    {
+        pr_err("loop_device: Unable to open output file\n");
+        unregister_chrdev(LOOP_MAJOR, LOOP_NAME);
+        return PTR_ERR(output_file_ptr);
+    }
+
+    pr_info("loop_device: %s file opend.\n", output_file);
 
 
-    pr_info("loop_device: %s\n", buf);
+    hex_buffer = kmalloc(BYTES_PER_ROW * 3 + 2, GFP_KERNEL);
+    if (!hex_buffer)
+        return -ENOMEM;
 
-    // hex_buffer = kmalloc(BYTES_PER_ROW * 3 + 2, GFP_KERNEL);
-    // if (!hex_buffer)
-    //     return -ENOMEM;
+    for (i = 0; i < rows; i++) {
+        for (j = 0; j < BYTES_PER_ROW; j++) {
+            sprintf(&hex_buffer[j * 3], "%02X ", buf[i * BYTES_PER_ROW + j] & 0xFF);
+        }
+        hex_buffer[BYTES_PER_ROW * 3] = '\n';
+        hex_buffer[BYTES_PER_ROW * 3 + 1] = '\0';
 
-    // for (i = 0; i < rows; i++) {
-    //     for (j = 0; j < BYTES_PER_ROW; j++) {
-    //         sprintf(&hex_buffer[j * 3], "%02X ", buf[i * BYTES_PER_ROW + j] & 0xFF);
-    //     }
-    //     hex_buffer[BYTES_PER_ROW * 3] = '\n';
-    //     hex_buffer[BYTES_PER_ROW * 3 + 1] = '\0';
+        if (ppos)
+            if (*ppos + bytes_written + count > i * BYTES_PER_ROW)
+                break;
 
-    //     if (ppos)
-    //         if (*ppos + bytes_written + count > i * BYTES_PER_ROW)
-    //             break;
+        pr_info("%s", hex_buffer);
 
-    //     pr_info("%s", hex_buffer);
+        // Write to the output file
+        kernel_write(output_file_ptr, hex_buffer, BYTES_PER_ROW * 3 + 1, &output_file_ptr->f_pos);
+        bytes_written += BYTES_PER_ROW;
+    }
 
-    //     // Write to the output file
-    //     kernel_write(output_file_ptr, hex_buffer, BYTES_PER_ROW * 3 + 1, &output_file_ptr->f_pos);
-    //     bytes_written += BYTES_PER_ROW;
-    // }
+    if (remaining > 0) {
+        for (j = 0; j < remaining; j++) {
+            sprintf(&hex_buffer[j * 3], "%02X ", buf[i * BYTES_PER_ROW + j] & 0xFF);
+        }
+        hex_buffer[remaining * 3] = '\n';
+        hex_buffer[remaining * 3 + 1] = '\0';
 
-    // if (remaining > 0) {
-    //     for (j = 0; j < remaining; j++) {
-    //         sprintf(&hex_buffer[j * 3], "%02X ", buf[i * BYTES_PER_ROW + j] & 0xFF);
-    //     }
-    //     hex_buffer[remaining * 3] = '\n';
-    //     hex_buffer[remaining * 3 + 1] = '\0';
+        pr_info("%s", hex_buffer);
 
-    //     pr_info("%s", hex_buffer);
+        // Write to the output file
+        kernel_write(output_file_ptr, hex_buffer, remaining * 3 + 1, &output_file_ptr->f_pos);
+        bytes_written += remaining;
+    }
 
-    //     // Write to the output file
-    //     kernel_write(output_file_ptr, hex_buffer, remaining * 3 + 1, &output_file_ptr->f_pos);
-    //     bytes_written += remaining;
-    // }
-
-    // kfree(hex_buffer);
+    kfree(hex_buffer);
 
 
     // Close the output file
-    // if (output_file_ptr) 
-    // {
-    //     filp_close(output_file_ptr, NULL);
+    if (output_file_ptr) 
+    {
+        filp_close(output_file_ptr, NULL);
 
-    //     pr_info("loop_device: %s file closed.\n", output_file);
+        pr_info("loop_device: %s file closed.\n", output_file);
+    }
+
+    return bytes_written;
+
+
+    // pr_info("loop_device: Device writing.\n");
+    
+    // // Check if the incoming data will exceed the buffer size.
+    // if (output_buffer_size + count > sizeof(output_buffer)) 
+    // {
+    //     pr_err("loop_device: Write buffer overflow.\n");
+    //     return -ENOSPC; // Not enough space left in the buffer.
     // }
 
-    // return bytes_written;
+    // // Copy the data from the user buffer to the driver's buffer.
+    // if (copy_from_user(output_buffer + output_buffer_size, buf, count))
+    // {
+    //     pr_err("loop_device: Failed to copy data from user buffer.\n");
+    //     return -EFAULT; // Failed to copy data from user space.
+    // }
 
-    return 0;
+    // output_buffer_size += count;
+
+    // pr_info("loop_device: %s.\n", output_buffer);
+
+    // return count; // Return the number of bytes written.
+
 }
 
 static struct file_operations loop_fops = {
@@ -126,14 +153,14 @@ static int __init loop_init(void)
 
     if (ret < 0) 
     {
-        printk(KERN_ERR "Failed to allocate major number\n");
+        printk(KERN_ERR "loop_device: Failed to allocate major number\n");
         return ret;
     }
 
     // Extract the major number from the device identifier (dev)
     major = MAJOR(dev);
 
-    printk(KERN_INFO "My Driver: Registered with major number %d\n", major);
+    printk(KERN_INFO "loop_device: Registered with major number %d\n", major);
 
     // Initialize the character device structure and associate it with file operations
     cdev_init(&my_cdev, &loop_fops);
@@ -143,7 +170,7 @@ static int __init loop_init(void)
     ret = cdev_add(&my_cdev, dev, 1);
     if (ret < 0) 
     {
-        printk(KERN_ERR "Failed to add character device\n");
+        printk(KERN_ERR "loop_device: Failed to add character device\n");
         unregister_chrdev_region(dev, 1);
         return ret;
     }
