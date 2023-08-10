@@ -4,10 +4,17 @@
 
 int main()
 {
-    FILE *file = fopen("./my_file.txt", "r");
+    FILE *input_file = fopen("./my_file.txt", "r");
    
-    if (!file) {
-        perror("Error opening file");
+    if (!input_file) {
+        perror("Error opening input file");
+        return 1;
+    }
+
+    FILE *output_file = fopen("/tmp/output", "w");
+    
+    if (!output_file) {
+        perror("Error opening output file");
         return 1;
     }
    
@@ -15,7 +22,7 @@ int main()
     size_t bytesRead = 0;
     size_t offset = 0;
 
-    while ((bytesRead = fread(buffer, sizeof(uint8_t), (16 / sizeof(uint8_t)), file)) > 0) 
+    while ((bytesRead = fread(buffer, sizeof(uint8_t), (16 / sizeof(uint8_t)), input_file)) > 0) 
     {
         printf("%07x", offset);
 
@@ -32,5 +39,5 @@ int main()
 
     printf("%07x\n", offset);
 
-    fclose(file);
+    fclose(input_file);
 }

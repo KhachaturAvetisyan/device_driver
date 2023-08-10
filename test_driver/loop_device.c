@@ -53,14 +53,14 @@ static ssize_t loop_write(struct file *file, const char __user *usr_buf,
     pr_info("loop_device: Device writing.\n");
 
     buf = kmalloc(count, GFP_KERNEL);
-    if (!buf) {
-        pr_err("loop_device: LAVD QUNEM\n");
+    if (!buf) 
+    {
         return 0;
     }
 
-    if (copy_from_user(buf, usr_buf, count)) {
-        pr_err("loop_device: VORD QUNEM\n");
-	kfree(buf);
+    if (copy_from_user(buf, usr_buf, count))
+    {
+    	kfree(buf);
         return 0; // Failed to copy data from user space
     }
 
@@ -84,21 +84,23 @@ static ssize_t loop_write(struct file *file, const char __user *usr_buf,
 
     memset(hex_buffer, 0, BYTES_PER_ROW * 3 + 2);
 
-    for (i = 0; i < rows; i++) {
-        for (j = 0; j < BYTES_PER_ROW; j++) {
+    for (i = 0; i < rows; i++) 
+    {
+        for (j = 0; j < BYTES_PER_ROW; j++) 
+        {
             char symbol;
-	    pr_info("loop_device: count %ld, %ld < %d \n", count, i, rows);
+            pr_info("loop_device: count %ld, %ld < %d \n", count, i, rows);
             symbol = buf[i * BYTES_PER_ROW + j] & 0xFF;
-	    pr_info("loop_device: 1++++++++.\n");
+            pr_info("loop_device: 1++++++++.\n");
             //sprintf(&hex_buffer[j * 3], "%02X", buf[i * BYTES_PER_ROW + j] & 0xFF);
-	    //hex_buffer[j*3 + 2] = ' ';
-	    
-	    hex_buffer[j * 3 + 1] = table[symbol % 16];
-	    symbol /= 16;
-	    hex_buffer[j * 3] = table[symbol % 16];
-	    hex_buffer[j * 3 + 2] = ' ';
-	    pr_info("hex_buffer %s\n", hex_buffer);
-	    pr_info("loop_device: 2++++++++.\n");
+            //hex_buffer[j*3 + 2] = ' ';
+            
+            hex_buffer[j * 3 + 1] = table[symbol % 16];
+            symbol /= 16;
+            hex_buffer[j * 3] = table[symbol % 16];
+            hex_buffer[j * 3 + 2] = ' ';
+            pr_info("hex_buffer %s\n", hex_buffer);
+            pr_info("loop_device: 2++++++++.\n");
         }
         hex_buffer[BYTES_PER_ROW * 3] = '\n';
         hex_buffer[BYTES_PER_ROW * 3 + 1] = '\0';
